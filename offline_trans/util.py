@@ -1,14 +1,16 @@
-from offline_trans.docker_archive import MANIFEST_FILE
-from pathlib import Path
-from enum import Enum
-import logging
-from tarfile import TarInfo
-from typing import IO, Optional, Tuple, Union, List
-from io import BytesIO
-from shlex import split
-import subprocess
 import json
+import logging
+import os
+import subprocess
+from enum import Enum
+from io import BytesIO
+from pathlib import Path
+from shlex import split
+from subprocess import CompletedProcess
+from tarfile import TarInfo
+from typing import IO, List, Optional, Tuple, Union
 
+from offline_trans.docker_archive import MANIFEST_FILE
 
 CUR_DIR = Path('.').resolve()
 
@@ -92,3 +94,9 @@ def get_tarinfo(filename:str, contents: Optional[str]=None, encoding:str='utf8')
         contents_io = open(filename, 'rb')
 
     return tarinfo, contents_io
+
+
+def run_process(cmd:str) -> CompletedProcess:
+    """ use split if operator-system is not windows"""
+    run_cmd = cmd if os.name == 'nt' else split(cmd)
+    return subprocess.run(run_cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)

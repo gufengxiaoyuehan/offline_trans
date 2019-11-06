@@ -1,18 +1,17 @@
-from offline_trans.docker_archive import DockerManifest
-import os
-import pathlib
-import subprocess
-import shlex
-import sys
 import gzip
-import tempfile
 import logging
-
+import os
+import sys
+import tempfile
 import click
 
-from sys import argv, stderr, stdout
-from .docker_transport import import_docker_diff, export_docker_diff, pre_check
-from .util import set_log_level, get_logger, get_manifest_json, get_tar_path, save_manifest_json, set_current_dir, set_manifest_path, get_running_image_hashes
+from offline_trans.docker_archive import DockerManifest
+
+from .docker_transport import export_docker_diff, import_docker_diff, pre_check
+from .util import (get_logger, get_manifest_json, get_running_image_hashes,
+                   get_tar_path, run_process, save_manifest_json,
+                   set_current_dir, set_log_level, set_manifest_path)
+
 
 @click.group()
 @click.option('--debug/--no-debug', default=False, help='toggle debug mode on/off')
@@ -38,7 +37,7 @@ def init(image_name):
     """this will create the ``docker_transport`` in this directory
     and make a snapshot off image given
     """
-    image_layers = subprocess.run(shlex.split(f'docker image inspect {image_name} -f "{{{{.RootFS.Layers}}}}"'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    image_layers = run_process(f'docker image inspect {image_name} -f "{{{{.RootFS.Layers}}}}"')
     if image_layers.returncode != 0:
         click.echo(f'erorr happens\n{image_layers.stderr.decode()}')
         sys.exit(1)
@@ -88,7 +87,7 @@ def import_(image_name, keep_file):
     if not base_image.exists() and click.confirm(f"base image not exits, save it use `dock save` or abort this process?", abort=True):
         save_manifest_json(image_name)
         
-    p_check = subprocess.run(shlex.split(f'docker inspect {image_name}'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p_check = run_process(f'docker inspect {image_name}')
     # init import
     if p_check.returncode != 0 and click.confirm(f'no image[{image_name}] found, import anyway?', abort=True):
         fd, tar_file = tempfile.mkstemp()
@@ -96,11 +95,11 @@ def import_(image_name, keep_file):
         with  gzip.GzipFile(diff_image_path, 'rb') as compressed:
             os.write(fd, compressed.read())
 
-        subprocess.run(shlex.split(f'docker load -i {tar_file}'))
+        run_process(f'docker load -i {tar_file}')
         
     else:
         image_path = import_docker_diff(image_name)
-        p = subprocess.run(shlex.split(f'docker load -i {image_path}'), stderr=subprocess.PIPE)
+        p = run_process(f'docker load -i {image_path}')
         if p.returncode != 0:
             click.echo(p.stderr) 
         if not keep_file:

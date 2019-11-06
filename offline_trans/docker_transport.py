@@ -1,22 +1,19 @@
 """use a hash json file and new saved archive image to check  layers should to keep
 or to remove if the bases
 """
-from io import BytesIO
-from tarfile import TarFile, TarInfo, open as tar_open
+import json
+import os
 import tempfile
-import gzip
-import subprocess
-from os import PathLike
-import os, json
-from sys import stderr, stdout
-from offline_trans.exceptions import DockerArchiveNotFound
 from pathlib import Path
-from shlex import split
-import shutil
+from tarfile import open as tar_open
 from typing import List, Optional, Tuple, Union
 
+from offline_trans.exceptions import DockerArchiveNotFound
+
 from .docker_archive import DockerArchive, DockerManifest
-from .util import get_tar_path, TarCategory, get_logger, get_manifest_json, get_tarinfo, set_current_dir, get_running_image_hashes
+from .util import (TarCategory, get_logger, get_manifest_json,
+                   get_running_image_hashes, get_tar_path, get_tarinfo,
+                   run_process, set_current_dir)
 
 logger = get_logger(__name__)
 
@@ -51,7 +48,7 @@ def export_docker_diff(image_name: str, output_dir: str="") -> Union[str, Path]:
         # export all to tar.gz
         image_path : Path = get_tar_path(image_name, TarCategory.DIFF)
         logger.info(f'{reason}, save all to {image_path}')
-        p = subprocess.run(split(f'docker save -o {image_path} {image_name}'), stderr=subprocess.PIPE)
+        p = run_process(f'docker save -o {image_path} {image_name}')
         if p.returncode != 0:
             raise RuntimeError(p.stderr)
         with tar_open(image_path.with_suffix('.tar.gz'), 'w:gz') as tar_out, tar_open(image_path) as tar_inpt:
@@ -68,7 +65,7 @@ def export_docker_diff(image_name: str, output_dir: str="") -> Union[str, Path]:
             tar_file.addfile(* get_tarinfo('keeped.json', json.dumps(list(keeped_set))))
     else:
         temp_tar_file = tempfile.mktemp()
-        p = subprocess.run(split(f'docker save -o {temp_tar_file} {image_name}'), stderr=subprocess.PIPE)
+        p = run_process(f'docker save -o {temp_tar_file} {image_name}')
         if p.returncode != 0:
             raise RuntimeError(p.stderr)
         
@@ -112,7 +109,7 @@ def import_docker_diff(image_name:str, input_dir: Optional[str]=None) -> Union[P
             current running:\t {curr_layer_hashes}')
 
     base_fd, base_image_path = tempfile.mkstemp(suffix='')
-    p = subprocess.run(split(f'docker save -o {base_image_path} {image_name}'), stderr=subprocess.PIPE)
+    p = run_process(f'docker save -o {base_image_path} {image_name}')
     if p.returncode !=0:
         raise RuntimeError(p.stderr)
     temp_fd, temp_image_path = tempfile.mkstemp(suffix='')
