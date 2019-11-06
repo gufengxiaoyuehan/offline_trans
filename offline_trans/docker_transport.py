@@ -109,11 +109,13 @@ def import_docker_diff(image_name:str, input_dir: Optional[str]=None) -> Union[P
             current running:\t {curr_layer_hashes}')
 
     base_fd, base_image_path = tempfile.mkstemp(suffix='')
+    # close it first, on windows not permit to access
+    os.close(base_fd)
     p = run_process(f'docker save -o {base_image_path} {image_name}')
     if p.returncode !=0:
         raise RuntimeError(p.stderr)
     temp_fd, temp_image_path = tempfile.mkstemp(suffix='')
-    os.close(base_fd), os.close(temp_fd)
+    os.close(temp_fd)
 
     base_image_archive = DockerArchive(base_image_path)
     
