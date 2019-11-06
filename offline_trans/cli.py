@@ -49,6 +49,8 @@ def init(image_name):
         
     click.echo(f" save layers' hash to {base_manifest} ")
     save_manifest_json(image_name)
+    base_docker_tar = get_tar_path(image_name, 'base')
+    run_process(f'docker save -o {base_docker_tar} {image_name}')
     click.echo("you can copy this to target machine, make diff-trans base on this later")
 
 @cli.command()
@@ -80,33 +82,39 @@ def import_(image_name, keep_file):
     """import diff layers to base
     """
     diff_image_path = get_tar_path(image_name, 'diff', compress=True)
-    if not diff_image_path.exists():
-        click.echo(f"diff image {diff_image_path} do not exists")
-
-    base_image = get_manifest_json(image_name)
-    if not base_image.exists() and click.confirm(f"base image not exits, save it use `dock save` or abort this process?", abort=True):
-        save_manifest_json(image_name)
-        
-    p_check = run_process(f'docker inspect {image_name}')
-    # init import
-    if p_check.returncode != 0 and click.confirm(f'no image[{image_name}] found, import anyway?', abort=True):
-        fd, tar_file = tempfile.mkstemp()
-
-        with  gzip.GzipFile(diff_image_path, 'rb') as compressed:
-            os.write(fd, compressed.read())
-
-        run_process(f'docker load -i {tar_file}')
-        
+    base_image_path = get_tar_path(image_name, 'base')
+    if not diff_image_path.exists() and not base_image_path.exists():
+        click.echo(f"both {diff_image_path} and {base_image_path} do not exists")
+        sys.exit(1)
+    elif not diff_image_path.exists() and base_image_path.exists():
+        # init import with raw tar file
+        click.confirm('load as base?', abort=True)
+        run_process(f'docker load -i {base_image_path}')
     else:
-        image_path = import_docker_diff(image_name)
-        p = run_process(f'docker load -i {image_path}')
-        if p.returncode != 0:
-            click.echo(p.stderr) 
-        if not keep_file:
-            os.unlink(image_path)
+        base_image = get_manifest_json(image_name)
+        if not base_image.exists():
+            click.echo(f"base image not exits, continue?")
+            sys.exit(1)
+            
+        p_check = run_process(f'docker inspect {image_name}')
+        # init import with gzip tar file
+        if p_check.returncode != 0 and click.confirm(f'no image[{image_name}] found, import anyway?', abort=True):
+            fd, tar_file = tempfile.mkstemp()
+    
+            with  gzip.GzipFile(diff_image_path, 'rb') as compressed:
+                os.write(fd, compressed.read())
+            run_process(f'docker load -i {tar_file}')
+            
+        else:
+            image_path = import_docker_diff(image_name)
+            p = run_process(f'docker load -i {image_path}')
+            if p.returncode != 0:
+                click.echo(p.stderr) 
+            if not keep_file:
+                os.unlink(image_path)
         save_manifest_json(image_name)
         click.echo("done!")
-
+    
 
 if __name__ == "__main__":
     cli.main()
