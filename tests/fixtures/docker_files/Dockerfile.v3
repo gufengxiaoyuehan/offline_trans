@@ -1,0 +1,4 @@
+FROM hello-world
+ADD append /var/
+ADD test /var/
+CMD ["echo", "version 2"]
