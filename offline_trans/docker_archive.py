@@ -125,7 +125,7 @@ class DockerArchive(abc.ABC):
                 docker_tar.extractall(tmp_tar_dir)
                 return DockerArchive._check_dir_schema(Path(tmp_tar_dir))
         else:
-            raise FaultDockerManifest("{tar_file} is not a tarfile")
+            raise FaultDockerManifest(f"{tar_file} is not a tarfile")
 
     def __del__(self):
         shutil.rmtree(self._archive)
