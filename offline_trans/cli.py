@@ -4,7 +4,8 @@ import pathlib
 import subprocess
 import shlex
 import sys
-import tarfile
+import gzip
+import tempfile
 import logging
 
 import click
@@ -87,7 +88,7 @@ def import_(image_name, keep_file):
     if not base_image.exists() and click.confirm(f"base image not exits, save it use `dock save` or abort this process?", abort=True):
         save_manifest_json(image_name)
         
-    p_check = subprocess.run(split(f'docker inspect {image_name}'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p_check = subprocess.run(shlex.split(f'docker inspect {image_name}'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # init import
     if p_check.returncode != 0 and click.confirm(f'no image[{image_name}] found, import anyway?', abort=True):
         fd, tar_file = tempfile.mkstemp()
@@ -95,7 +96,7 @@ def import_(image_name, keep_file):
         with  gzip.GzipFile(diff_image_path, 'rb') as compressed:
             os.write(fd, compressed.read())
 
-        subprocess.run(split(f'docker load -i {tar_file}'))
+        subprocess.run(shlex.split(f'docker load -i {tar_file}'))
         
     else:
         image_path = import_docker_diff(image_name)
