@@ -106,7 +106,7 @@ def import_docker_diff(image_name:str, input_dir: Optional[str]=None) -> Union[P
         raise RuntimeError(f'base mainfest not find: {base_manifest}')
     curr_layer_hashes = get_running_image_hashes(image_name)
     res,reason, keeped_set = pre_check(base_manifest_archive.layer_hashes, curr_layer_hashes)
-    if res !=0:
+    if res !=1:
         raise RuntimeError(f'current running is not equal to base manifest which \
             used to extract diff layers\nbase:\t{base_manifest_archive.layer_hashes}\n\
             current running:\t {curr_layer_hashes}')
