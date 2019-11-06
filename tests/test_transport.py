@@ -62,10 +62,10 @@ def import_error_tear_down():
     shutil.copy(tmp, base_hash_path)
     os.unlink(tmp)
 
-@with_setup(import_error_setup, import_error_tear_down)
-@tools.raises(RuntimeError)
-def test_docker_trans_import_with_diff_raise_error():
-    import_docker_diff('offline_trans')
+# @with_setup(import_error_setup, import_error_tear_down)
+# @tools.raises(RuntimeError)
+# def test_docker_trans_import_with_diff_raise_error():
+#     import_docker_diff('offline_trans')
 
 def import_docker_diff_setup():
     ...
@@ -74,5 +74,6 @@ def import_docker_diff_tear_down():
     ...
 
 @with_setup(import_docker_diff_setup, import_docker_diff_tear_down)
+@tools.raises(RuntimeError)
 def test_docker_trans_import_with_diff():
     import_docker_diff('offline_trans')
