@@ -102,9 +102,10 @@ def import_(image_name, keep_file):
         p = subprocess.run(shlex.split(f'docker load -i {image_path}'), stderr=subprocess.PIPE)
         if p.returncode != 0:
             click.echo(p.stderr) 
-    if not keep_file:
-        os.unlink(image_path)
-    click.echo("done!")
+        if not keep_file:
+            os.unlink(image_path)
+        save_manifest_json(image_name)
+        click.echo("done!")
 
 
 if __name__ == "__main__":
