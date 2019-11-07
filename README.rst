@@ -39,7 +39,7 @@ test
 -----
 make sure you have ``docker`` installed, and run:
 
-.... code-block:: python
+.. code-block:: python
 
     python run_nose.py
 
