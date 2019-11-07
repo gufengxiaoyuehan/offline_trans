@@ -1,12 +1,13 @@
 """use a hash json file and new saved archive image to check  layers should to keep
 or to remove if the bases
 """
+from io import BytesIO
 import json
 import os
 import tempfile
 from pathlib import Path
 from tarfile import open as tar_open
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, IO
 
 from offline_trans.exceptions import DockerArchiveNotFound
 
@@ -70,8 +71,14 @@ def export_docker_diff(image_name: str, output_dir: str="") -> Union[str, Path]:
             raise RuntimeError(p.stderr)
         
         new_docker_archive = DockerArchive(temp_tar_file)
-        diff_layer_hash = set(new_docker_archive.layer_hashes) - keeped_set
-        
+        diff_layer_hash = []
+        keeped_layer = {} # hash-position key pair
+        for i, layer_hash in enumerate(new_docker_archive.layer_hashes):
+            if layer_hash in keeped_set:
+                keeped_layer[layer_hash] = i
+            else:
+                diff_layer_hash.append(layer_hash)
+
         diff_layer_paths = new_docker_archive.get_layers_from_hashes(diff_layer_hash)
 
         image_path = get_tar_path(image_name, TarCategory.DIFF, True)
@@ -84,7 +91,7 @@ def export_docker_diff(image_name: str, output_dir: str="") -> Union[str, Path]:
             for meta_file, arcname in new_docker_archive.meta_files:
                 diff_tar.add(meta_file, arcname)
 
-            diff_tar.addfile(*get_tarinfo('keeped.json', json.dumps(list(keeped_set))))
+            diff_tar.addfile(*get_tarinfo('keeped.json', json.dumps(keeped_layer)))
         os.unlink(temp_tar_file)
     return image_path
       
@@ -122,16 +129,21 @@ def import_docker_diff(image_name:str, input_dir: Optional[str]=None) -> Union[P
     with tar_open(diff_image_path) as diff_image_tar, tar_open(temp_image_path, 'w') as temp_image_tar:
         # rm meta info
         for member in diff_image_tar:
-            if member.name != 'keeped.json':
+            if member.name not in ('keeped.json', 'manifest.json'):
                 temp_image_tar.addfile(member, diff_image_tar.extractfile(member))
         keeped_file = diff_image_tar.extractfile('keeped.json')
 
         if keeped_file:
             keeped_layers = json.load(keeped_file)
-
-            for layer_hash in keeped_layers:
+            manifests= json.load(diff_image_tar.extractfile('manifest.json'))
+            curr_manifest = manifests[0]
+            for layer_hash, position in keeped_layers.items():
                 for file_path, arcname in base_image_archive.get_layer_from_hash(layer_hash) :
                     temp_image_tar.add(file_path, arcname)
+                    curr_manifest['Layers'][position] = arcname
 
+            temp_image_tar.addfile(*get_tarinfo('manifest.json', json.dumps(manifests)))
+        else:
+            temp_image_tar.addfile(diff_image_tar.getmember('manifest.json'), diff_image_tar.extractfile('manifest.json'))
     logger.info(f'build tar file at {temp_image_path}')
     return temp_image_path
