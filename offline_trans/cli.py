@@ -112,8 +112,8 @@ def import_(image_name, keep_file):
                 click.echo(p.stderr) 
             if not keep_file:
                 os.unlink(image_path)
-        save_manifest_json(image_name)
-        click.echo("done!")
+    save_manifest_json(image_name)
+    click.echo("done!")
     
 
 if __name__ == "__main__":
