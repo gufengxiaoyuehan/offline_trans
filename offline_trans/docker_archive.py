@@ -56,7 +56,26 @@ class DockerArchive(abc.ABC):
         if tarfile.is_tarfile(str(tar_file)):
             __archive = tempfile.mkdtemp()
             with tarfile.open(tar_file) as tar:
-                tar.extractall(__archive)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner=numeric_owner) 
+                    
+                
+                safe_extract(tar, __archive)
         else:
             __archive = tar_file
         self._archive = Path(__archive)
@@ -122,7 +141,26 @@ class DockerArchive(abc.ABC):
         tar_filepath = str(tar_file.resolve())
         if tarfile.is_tarfile(tar_filepath):
             with tarfile.open(tar_file) as docker_tar, tempfile.TemporaryDirectory() as tmp_tar_dir:
-                docker_tar.extractall(tmp_tar_dir)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner=numeric_owner) 
+                    
+                
+                safe_extract(docker_tar, tmp_tar_dir)
                 return DockerArchive._check_dir_schema(Path(tmp_tar_dir))
         else:
             raise FaultDockerManifest(f"{tar_file} is not a tarfile")
